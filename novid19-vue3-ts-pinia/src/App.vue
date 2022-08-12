@@ -1,8 +1,64 @@
 <template lang="">
   <div :style="{background: `url(${bg})`}" class="box">
-    <div class="box-left"></div>
+    <div style="color:white" class="box-left">
+      <div class="box-left-card">
+        <section>
+          <div>较上日+ {{ store.chinaAdd.localConfirmH5 }}</div>
+          <div>{{ store.chinaTotal.localConfirm }}</div>
+          <div>本土现有确诊</div>
+        </section>
+        <section>
+          <div>较上日+ {{ store.chinaAdd.nowConfirm }}</div>
+          <div>{{ store.chinaTotal.nowConfirm }}</div>
+          <div>现有确诊</div>
+        </section>
+        <section>
+          <div>较上日+ {{ store.chinaAdd.confirm }}</div>
+          <div>{{ store.chinaTotal.confirm }}</div>
+          <div>累计确诊</div>
+        </section>
+        <section>
+          <div>较上日+ {{ store.chinaAdd.noInfect }}</div>
+          <div>{{ store.chinaTotal.noInfect }}</div>
+          <div>无症状感染者</div>
+        </section>
+        <section>
+          <div>较上日+ {{ store.chinaAdd.importedCase }}</div>
+          <div>{{ store.chinaTotal.importedCase }}</div>
+          <div>境外输入</div>
+        </section>
+        <section>
+          <div>较上日+ {{ store.chinaAdd.dead }}</div>
+          <div>{{ store.chinaTotal.dead }}</div>
+          <div>累计死亡</div>
+        </section>
+      </div>
+      <div class="box-left-pie"></div>
+      <div class="box-left-line"></div>
+    </div>
     <div id="china" class="box-center"></div>
-    <div class="box-right"></div>
+    <div class="box-right" style="fontSize:10px;color:white">
+      <table class="table"  cellspacing="0"  border="1">
+        <thead>
+          <tr align="center">
+            <th>地区</th>
+            <th>新增确诊</th>
+            <th>累积确诊</th>
+            <th>治愈</th>
+            <th>死亡</th>
+          </tr>
+        </thead>
+        <transition-group enter-active-class="animate__animated animate__flipInY" tag="tbody">
+          <tr :key="item.name+index" align="center" v-for="(item,index) in store.item">
+            <td>{{item.name}}</td>
+            <td>{{item.today.confirm}}</td>
+            <td>{{item.total.confirm}}</td>
+            <td>{{item.total.heal}}</td>
+            <td>{{item.total.dead}}</td>
+          </tr>
+        </transition-group>
+      </table>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -11,21 +67,32 @@ import { useStore } from "./stores";
 import { onMounted } from 'vue';
 import * as echarts from 'echarts'; //5版本要把所有api搞成对象这么引
 import './assets/china.js';
+import { geoCoordMap } from './assets/geoMap'
+import 'animate.css'
 
 const store = useStore()
-store.getList()
 
 
+onMounted(async () => {
+  await store.getList()
+  initCharts()
+  initPie()
+  initLine()
+})
 
-onMounted(()=>{
+const initCharts = () => {
+  const city = store.list.diseaseh5Shelf.areaTree[0].children;
+  store.item = city[11].children
+  const data = city.map(v => {
+    return {
+      name: v.name,
+      value: geoCoordMap[v.name].concat(v.total.nowConfirm),
+      children: v.children
+    }
+  })
+
+
   const charts = echarts.init(document.querySelector('#china') as HTMLElement)
-  var data = [{
-    name:"内蒙古",
-    itemStyle:{
-      areaColor:"#56b1da"
-    },
-    value:[110.3467,41.4899]
-  }]
   charts.setOption({
     geo: {
       map: "china",
@@ -78,7 +145,7 @@ onMounted(()=>{
           label: {
             show: false,
             color: "#FFFFFF",
-            fontSize: 12,
+            fontSize: 10,
           },
         },
       ],
@@ -93,7 +160,7 @@ onMounted(()=>{
         label: {
           show: true,
           color: "#FFFFFF",
-          fontSize: 12,
+          fontSize: 10,
         },
         itemStyle: {
           areaColor: "#0c3653",
@@ -113,7 +180,7 @@ onMounted(()=>{
         type: 'scatter',
         coordinateSystem: 'geo',
         symbol: 'pin',
-        symbolSize: [45, 45],
+        symbolSize: [35, 35],
         label: {
           show: true,
           color: "#fff",
@@ -128,33 +195,180 @@ onMounted(()=>{
       },
     ],
   })
-})
+  charts.on('click', (e: any) => {
+    // console.log(e)
+    store.item = e.data.children
+  })
+}
+
+const initPie = () => {
+  // console.log("www",store.cityDetail)
+
+  const charts = echarts.init(document.querySelector('.box-left-pie') as HTMLElement)
+  charts.setOption({
+    backgroundColor: "#223651",
+    tooltip: {
+      trigger: 'item'
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['40%', '70%'],
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: '#fff',
+          borderWidth: 1
+        },
+        label: {
+          show: true,
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: '14',
+          }
+        },
+        data: store.cityDetail.map(v => {
+          return {
+            name: v.city,
+            value: v.local_confirm_add
+          }
+        })
+      }
+    ]
+  })
+}
+
+const initLine = () => {
+  const charts = echarts.init(document.querySelector('.box-left-line') as HTMLElement)
+  charts.setOption({
+    xAxis: {
+      type: 'category',
+      data: store.cityDetail.map(v => v.city),
+      axisLine: {
+        lineStyle: {
+          color: "#fff"
+        }
+      },
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: "#fff"
+        }
+      },
+    },
+    tooltip: {
+      trigger: 'axis'
+    },
+    label: {
+      show: true,
+      fontSize: 8
+    },
+    series: [
+      {
+        data: store.cityDetail.map(v => v.local_confirm_add),
+        type: 'line',
+        smooth: true
+      }
+    ]
+  })
+}
 
 </script>
 <style lang="less">
-  *{
-    padding: 0;
-    margin: 0;
-  }
-  html,
-  body,
-  #app{
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-  }
-  .box{
-    height: 100%;
-    display: flex;
-    overflow: hidden;
-    &-left{
-      width: 300px;
+* {
+  padding: 0;
+  margin: 0;
+}
+
+@itemColor: #41b0db;
+@itemBg: #223651;
+@itemBorder: #212028;
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.table {
+  width: 80%;
+  background: #212028;
+  float: right;
+
+  tr {
+    th {
+      padding: 5px;
+      white-space: nowrap;
     }
-    &-center{
-      flex: 1;
-    }
-    &-right{
-      width: 300px;
+
+    td {
+      padding: 5px 10px;
+      width: 100px;
+      white-space: nowrap;
     }
   }
+}
+
+.box {
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+
+  &-left {
+    font-size: 14px;
+    width: 400px;
+    padding: 10px;
+
+    &-pie {
+      height: 35%;
+      width: 80%;
+      margin-top: 10px;
+    }
+
+    &-line {
+      background-color: #223651;
+      height: 40%;
+      width: 80%;
+      margin-top: 10px;
+    }
+
+    &-card {
+      height: 27%;
+      width: 80%;
+      font-size: 12px;
+      display: grid;
+      grid-template-columns: auto auto auto;
+      grid-template-rows: auto auto;
+
+      section {
+        background-color: @itemBg;
+        border: 1px solid @itemBorder;
+        padding: 5px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        div:nth-child(2) {
+          color: @itemColor;
+          padding: 5px 0;
+          font-size: 16px;
+          font-weight: 800;
+        }
+      }
+    }
+  }
+
+  &-center {
+    flex: 1;
+  }
+
+  &-right {
+    width: 400px;
+  }
+}
 </style>
